@@ -9,6 +9,7 @@ import {IReactorCallback} from "../interfaces/IReactorCallback.sol";
 import {IReactor} from "../interfaces/IReactor.sol";
 import {CurrencyLibrary} from "../lib/CurrencyLibrary.sol";
 import {ResolvedOrder, SignedOrder} from "../base/ReactorStructs.sol";
+import {console} from "forge-std/console.sol";
 
 /// @notice A fill contract that uses UniversalRouter to execute trades
 contract UniversalRouterExecutor is IReactorCallback, Owned {
@@ -55,12 +56,18 @@ contract UniversalRouterExecutor is IReactorCallback, Owned {
     }
 
     /// @notice assume that we already have all output tokens
-    function execute(SignedOrder calldata order, bytes calldata callbackData) external onlyWhitelistedCaller {
+    function execute(
+        SignedOrder calldata order,
+        bytes calldata callbackData
+    ) external onlyWhitelistedCaller {
         reactor.executeWithCallback(order, callbackData);
     }
 
     /// @notice assume that we already have all output tokens
-    function executeBatch(SignedOrder[] calldata orders, bytes calldata callbackData) external onlyWhitelistedCaller {
+    function executeBatch(
+        SignedOrder[] calldata orders,
+        bytes calldata callbackData
+    ) external onlyWhitelistedCaller {
         reactor.executeBatchWithCallback(orders, callbackData);
     }
 
@@ -69,7 +76,10 @@ contract UniversalRouterExecutor is IReactorCallback, Owned {
     /// address[] memory tokensToApproveForUniversalRouter: Max approve these tokens to permit2 and universalRouter
     /// address[] memory tokensToApproveForReactor: Max approve these tokens to reactor
     /// bytes memory data: execution data
-    function reactorCallback(ResolvedOrder[] calldata, bytes calldata callbackData) external onlyReactor {
+    function reactorCallback(
+        ResolvedOrder[] calldata,
+        bytes calldata callbackData
+    ) external onlyReactor {
         (
             address[] memory tokensToApproveForUniversalRouter,
             address[] memory tokensToApproveForReactor,
@@ -77,20 +87,33 @@ contract UniversalRouterExecutor is IReactorCallback, Owned {
         ) = abi.decode(callbackData, (address[], address[], bytes));
 
         unchecked {
-            for (uint256 i = 0; i < tokensToApproveForUniversalRouter.length; i++) {
+            for (
+                uint256 i = 0;
+                i < tokensToApproveForUniversalRouter.length;
+                i++
+            ) {
+                //! We should add another function in order to handle USDT zero approve!
                 // Max approve token to permit2
-                ERC20(tokensToApproveForUniversalRouter[i]).safeApprove(address(permit2), type(uint256).max);
+                ERC20(tokensToApproveForUniversalRouter[i]).safeApprove(
+                    address(permit2),
+                    type(uint256).max
+                );
                 // Max approve token to universalRouter via permit2
                 permit2.approve(
-                    tokensToApproveForUniversalRouter[i], address(universalRouter), type(uint160).max, type(uint48).max
+                    tokensToApproveForUniversalRouter[i],
+                    address(universalRouter),
+                    type(uint160).max,
+                    type(uint48).max
                 );
             }
 
             for (uint256 i = 0; i < tokensToApproveForReactor.length; i++) {
-                ERC20(tokensToApproveForReactor[i]).safeApprove(address(reactor), type(uint256).max);
+                ERC20(tokensToApproveForReactor[i]).safeApprove(
+                    address(reactor),
+                    type(uint256).max
+                );
             }
         }
-
         (bool success, bytes memory returnData) = universalRouter.call(data);
         if (!success) {
             assembly {
@@ -101,7 +124,10 @@ contract UniversalRouterExecutor is IReactorCallback, Owned {
         // transfer any native balance to the reactor
         // it will refund any excess
         if (address(this).balance > 0) {
-            CurrencyLibrary.transferNative(address(reactor), address(this).balance);
+            CurrencyLibrary.transferNative(
+                address(reactor),
+                address(this).balance
+            );
         }
     }
 

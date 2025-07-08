@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import {OutputToken, InputToken} from "../base/ReactorStructs.sol";
 import {DutchOutput, DutchInput} from "../lib/DutchOrderLib.sol";
 import {FixedPointMathLib} from "solmate/src/utils/FixedPointMathLib.sol";
+import {console2} from "forge-std/console2.sol";
 
 /// @notice helpers for handling dutch order objects
 library DutchDecayLib {
@@ -23,11 +24,12 @@ library DutchDecayLib {
     /// @param endAmount The amount of tokens at decayEndTime
     /// @param decayStartTime The time to start decaying linearly
     /// @param decayEndTime The time to stop decaying linearly
-    function decay(uint256 startAmount, uint256 endAmount, uint256 decayStartTime, uint256 decayEndTime)
-        internal
-        view
-        returns (uint256 decayedAmount)
-    {
+    function decay(
+        uint256 startAmount,
+        uint256 endAmount,
+        uint256 decayStartTime,
+        uint256 decayEndTime
+    ) internal view returns (uint256 decayedAmount) {
         if (startAmount == endAmount) {
             return startAmount;
         } else if (decayEndTime <= decayStartTime) {
@@ -37,7 +39,13 @@ library DutchDecayLib {
         } else if (decayStartTime >= block.timestamp) {
             decayedAmount = startAmount;
         } else {
-            decayedAmount = linearDecay(decayStartTime, decayEndTime, block.timestamp, startAmount, endAmount);
+            decayedAmount = linearDecay(
+                decayStartTime,
+                decayEndTime,
+                block.timestamp,
+                startAmount,
+                endAmount
+            );
         }
     }
 
@@ -54,7 +62,16 @@ library DutchDecayLib {
         uint256 startAmount,
         uint256 endAmount
     ) internal pure returns (uint256) {
-        return uint256(linearDecay(startPoint, endPoint, currentPoint, int256(startAmount), int256(endAmount)));
+        return
+            uint256(
+                linearDecay(
+                    startPoint,
+                    endPoint,
+                    currentPoint,
+                    int256(startAmount),
+                    int256(endAmount)
+                )
+            );
     }
 
     /// @notice returns the linear interpolation between the two points
@@ -77,9 +94,13 @@ library DutchDecayLib {
         uint256 duration = endPoint - startPoint;
         int256 delta;
         if (endAmount < startAmount) {
-            delta = -int256(uint256(startAmount - endAmount).mulDivDown(elapsed, duration));
+            delta = -int256(
+                uint256(startAmount - endAmount).mulDivDown(elapsed, duration)
+            );
         } else {
-            delta = int256(uint256(endAmount - startAmount).mulDivDown(elapsed, duration));
+            delta = int256(
+                uint256(endAmount - startAmount).mulDivDown(elapsed, duration)
+            );
         }
         return startAmount + delta;
     }
@@ -89,16 +110,21 @@ library DutchDecayLib {
     /// @param decayStartTime The time to start decaying
     /// @param decayEndTime The time to end decaying
     /// @return result a decayed output
-    function decay(DutchOutput memory output, uint256 decayStartTime, uint256 decayEndTime)
-        internal
-        view
-        returns (OutputToken memory result)
-    {
+    function decay(
+        DutchOutput memory output,
+        uint256 decayStartTime,
+        uint256 decayEndTime
+    ) internal view returns (OutputToken memory result) {
         if (output.startAmount < output.endAmount) {
             revert IncorrectAmounts();
         }
 
-        uint256 decayedOutput = DutchDecayLib.decay(output.startAmount, output.endAmount, decayStartTime, decayEndTime);
+        uint256 decayedOutput = DutchDecayLib.decay(
+            output.startAmount,
+            output.endAmount,
+            decayStartTime,
+            decayEndTime
+        );
         result = OutputToken(output.token, decayedOutput, output.recipient);
     }
 
@@ -107,11 +133,11 @@ library DutchDecayLib {
     /// @param decayStartTime The time to start decaying
     /// @param decayEndTime The time to end decaying
     /// @return result a decayed output array
-    function decay(DutchOutput[] memory outputs, uint256 decayStartTime, uint256 decayEndTime)
-        internal
-        view
-        returns (OutputToken[] memory result)
-    {
+    function decay(
+        DutchOutput[] memory outputs,
+        uint256 decayStartTime,
+        uint256 decayEndTime
+    ) internal view returns (OutputToken[] memory result) {
         uint256 outputLength = outputs.length;
         result = new OutputToken[](outputLength);
         unchecked {
@@ -126,16 +152,21 @@ library DutchDecayLib {
     /// @param decayStartTime The time to start decaying
     /// @param decayEndTime The time to end decaying
     /// @return result a decayed input
-    function decay(DutchInput memory input, uint256 decayStartTime, uint256 decayEndTime)
-        internal
-        view
-        returns (InputToken memory result)
-    {
+    function decay(
+        DutchInput memory input,
+        uint256 decayStartTime,
+        uint256 decayEndTime
+    ) internal view returns (InputToken memory result) {
         if (input.startAmount > input.endAmount) {
             revert IncorrectAmounts();
         }
 
-        uint256 decayedInput = DutchDecayLib.decay(input.startAmount, input.endAmount, decayStartTime, decayEndTime);
+        uint256 decayedInput = DutchDecayLib.decay(
+            input.startAmount,
+            input.endAmount,
+            decayStartTime,
+            decayEndTime
+        );
         result = InputToken(input.token, decayedInput, input.endAmount);
     }
 }

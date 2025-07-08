@@ -12,10 +12,16 @@ import {IReactorCallback} from "../interfaces/IReactorCallback.sol";
 import {IReactor} from "../interfaces/IReactor.sol";
 import {ProtocolFees} from "../base/ProtocolFees.sol";
 import {SignedOrder, ResolvedOrder, OutputToken} from "../base/ReactorStructs.sol";
+import {console} from "forge-std/console.sol";
 
 /// @notice Generic reactor logic for settling off-chain signed orders
 ///     using arbitrary fill methods specified by a filler
-abstract contract BaseReactor is IReactor, ReactorEvents, ProtocolFees, ReentrancyGuard {
+abstract contract BaseReactor is
+    IReactor,
+    ReactorEvents,
+    ProtocolFees,
+    ReentrancyGuard
+{
     using SafeTransferLib for ERC20;
     using ResolvedOrderLib for ResolvedOrder;
     using CurrencyLibrary for address;
@@ -23,12 +29,17 @@ abstract contract BaseReactor is IReactor, ReactorEvents, ProtocolFees, Reentran
     /// @notice permit2 address used for token transfers and signature verification
     IPermit2 public immutable permit2;
 
-    constructor(IPermit2 _permit2, address _protocolFeeOwner) ProtocolFees(_protocolFeeOwner) {
+    constructor(
+        IPermit2 _permit2,
+        address _protocolFeeOwner
+    ) ProtocolFees(_protocolFeeOwner) {
         permit2 = _permit2;
     }
 
     /// @inheritdoc IReactor
-    function execute(SignedOrder calldata order) external payable override nonReentrant {
+    function execute(
+        SignedOrder calldata order
+    ) external payable override nonReentrant {
         ResolvedOrder[] memory resolvedOrders = new ResolvedOrder[](1);
         resolvedOrders[0] = _resolve(order);
 
@@ -37,24 +48,28 @@ abstract contract BaseReactor is IReactor, ReactorEvents, ProtocolFees, Reentran
     }
 
     /// @inheritdoc IReactor
-    function executeWithCallback(SignedOrder calldata order, bytes calldata callbackData)
-        external
-        payable
-        override
-        nonReentrant
-    {
+    function executeWithCallback(
+        SignedOrder calldata order,
+        bytes calldata callbackData
+    ) external payable override nonReentrant {
         ResolvedOrder[] memory resolvedOrders = new ResolvedOrder[](1);
         resolvedOrders[0] = _resolve(order);
-
         _prepare(resolvedOrders);
-        IReactorCallback(msg.sender).reactorCallback(resolvedOrders, callbackData);
+        IReactorCallback(msg.sender).reactorCallback(
+            resolvedOrders,
+            callbackData
+        );
         _fill(resolvedOrders);
     }
 
     /// @inheritdoc IReactor
-    function executeBatch(SignedOrder[] calldata orders) external payable override nonReentrant {
+    function executeBatch(
+        SignedOrder[] calldata orders
+    ) external payable override nonReentrant {
         uint256 ordersLength = orders.length;
-        ResolvedOrder[] memory resolvedOrders = new ResolvedOrder[](ordersLength);
+        ResolvedOrder[] memory resolvedOrders = new ResolvedOrder[](
+            ordersLength
+        );
 
         unchecked {
             for (uint256 i = 0; i < ordersLength; i++) {
@@ -67,14 +82,14 @@ abstract contract BaseReactor is IReactor, ReactorEvents, ProtocolFees, Reentran
     }
 
     /// @inheritdoc IReactor
-    function executeBatchWithCallback(SignedOrder[] calldata orders, bytes calldata callbackData)
-        external
-        payable
-        override
-        nonReentrant
-    {
+    function executeBatchWithCallback(
+        SignedOrder[] calldata orders,
+        bytes calldata callbackData
+    ) external payable override nonReentrant {
         uint256 ordersLength = orders.length;
-        ResolvedOrder[] memory resolvedOrders = new ResolvedOrder[](ordersLength);
+        ResolvedOrder[] memory resolvedOrders = new ResolvedOrder[](
+            ordersLength
+        );
 
         unchecked {
             for (uint256 i = 0; i < ordersLength; i++) {
@@ -83,7 +98,10 @@ abstract contract BaseReactor is IReactor, ReactorEvents, ProtocolFees, Reentran
         }
 
         _prepare(resolvedOrders);
-        IReactorCallback(msg.sender).reactorCallback(resolvedOrders, callbackData);
+        IReactorCallback(msg.sender).reactorCallback(
+            resolvedOrders,
+            callbackData
+        );
         _fill(resolvedOrders);
     }
 
@@ -116,16 +134,34 @@ abstract contract BaseReactor is IReactor, ReactorEvents, ProtocolFees, Reentran
                     output.token.transferFill(output.recipient, output.amount);
                 }
 
-                emit Fill(orders[i].hash, msg.sender, resolvedOrder.info.swapper, resolvedOrder.info.nonce);
+                emit Fill(
+                    orders[i].hash,
+                    msg.sender,
+                    resolvedOrder.info.swapper,
+                    resolvedOrder.info.nonce
+                );
             }
         }
-
+        console.log(
+            "This is UniversalRouter executer balance before transferNative in BaseReactor ",
+            address(msg.sender).balance
+        );
         // refund any remaining ETH to the filler. Only occurs when filler sends more ETH than required to
         // `execute()` or `executeBatch()`, or when there is excess contract balance remaining from others
         // incorrectly calling execute/executeBatch without direct filler method but with a msg.value
         if (address(this).balance > 0) {
             CurrencyLibrary.transferNative(msg.sender, address(this).balance);
         }
+
+        console.log(
+            "This is UniversalRouter executer balance after transferNative in BaseReactor ",
+            address(msg.sender).balance
+        );
+
+        console.log(
+            "This is reactor balance after transferNative for executor in BaseReactor ",
+            address(this).balance
+        );
     }
 
     receive() external payable {
@@ -136,10 +172,15 @@ abstract contract BaseReactor is IReactor, ReactorEvents, ProtocolFees, Reentran
     /// @param order The encoded order to resolve
     /// @return resolvedOrder generic resolved order of inputs and outputs
     /// @dev should revert on any order-type-specific validation errors
-    function _resolve(SignedOrder calldata order) internal view virtual returns (ResolvedOrder memory resolvedOrder);
+    function _resolve(
+        SignedOrder calldata order
+    ) internal view virtual returns (ResolvedOrder memory resolvedOrder);
 
     /// @notice Transfers tokens to the fillContract
     /// @param order The encoded order to transfer tokens for
     /// @param to The address to transfer tokens to
-    function _transferInputTokens(ResolvedOrder memory order, address to) internal virtual;
+    function _transferInputTokens(
+        ResolvedOrder memory order,
+        address to
+    ) internal virtual;
 }

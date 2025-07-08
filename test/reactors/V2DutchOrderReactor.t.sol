@@ -3,16 +3,7 @@ pragma solidity ^0.8.0;
 
 import {Test} from "forge-std/Test.sol";
 import {DeployPermit2} from "../util/DeployPermit2.sol";
-import {
-    V2DutchOrder,
-    V2DutchOrderLib,
-    CosignerData,
-    V2DutchOrderReactor,
-    ResolvedOrder,
-    DutchOutput,
-    DutchInput,
-    BaseReactor
-} from "../../src/reactors/V2DutchOrderReactor.sol";
+import {V2DutchOrder, V2DutchOrderLib, CosignerData, V2DutchOrderReactor, ResolvedOrder, DutchOutput, DutchInput, BaseReactor} from "../../src/reactors/V2DutchOrderReactor.sol";
 import {OrderInfo, InputToken, SignedOrder, OutputToken} from "../../src/base/ReactorStructs.sol";
 import {ExclusivityLib} from "../../src/lib/ExclusivityLib.sol";
 import {DutchDecayLib} from "../../src/lib/DutchDecayLib.sol";
@@ -27,11 +18,15 @@ import {PermitSignature} from "../util/PermitSignature.sol";
 import {ReactorEvents} from "../../src/base/ReactorEvents.sol";
 import {DutchOrder, BaseDutchOrderReactorTest, TestDutchOrderSpec} from "./BaseDutchOrderReactor.t.sol";
 
-contract V2DutchOrderTest is PermitSignature, DeployPermit2, BaseDutchOrderReactorTest {
+contract V2DutchOrderTest is
+    PermitSignature,
+    DeployPermit2,
+    BaseDutchOrderReactorTest
+{
     using OrderInfoBuilder for OrderInfo;
     using V2DutchOrderLib for V2DutchOrder;
 
-    uint256 constant cosignerPrivateKey = 0x99999999;
+    uint256 public constant cosignerPrivateKey = 0x99999999;
 
     function name() public pure override returns (string memory) {
         return "V2DutchOrder";
@@ -42,13 +37,17 @@ contract V2DutchOrderTest is PermitSignature, DeployPermit2, BaseDutchOrderReact
     }
 
     /// @dev Create and return a basic single Dutch limit order along with its signature, orderHash, and orderInfo
-    function createAndSignOrder(ResolvedOrder memory request)
+    function createAndSignOrder(
+        ResolvedOrder memory request
+    )
         public
         view
         override
         returns (SignedOrder memory signedOrder, bytes32 orderHash)
     {
-        DutchOutput[] memory outputs = new DutchOutput[](request.outputs.length);
+        DutchOutput[] memory outputs = new DutchOutput[](
+            request.outputs.length
+        );
         for (uint256 i = 0; i < request.outputs.length; i++) {
             OutputToken memory output = request.outputs[i];
             outputs[i] = DutchOutput({
@@ -76,19 +75,31 @@ contract V2DutchOrderTest is PermitSignature, DeployPermit2, BaseDutchOrderReact
         V2DutchOrder memory order = V2DutchOrder({
             info: request.info,
             cosigner: vm.addr(cosignerPrivateKey),
-            baseInput: DutchInput(request.input.token, request.input.amount, request.input.amount),
+            baseInput: DutchInput(
+                request.input.token,
+                request.input.amount,
+                request.input.amount
+            ),
             baseOutputs: outputs,
             cosignerData: cosignerData,
             cosignature: bytes("")
         });
         orderHash = order.hash();
         order.cosignature = cosignOrder(orderHash, cosignerData);
-        return (SignedOrder(abi.encode(order), signOrder(swapperPrivateKey, address(permit2), order)), orderHash);
+        return (
+            SignedOrder(
+                abi.encode(order),
+                signOrder(swapperPrivateKey, address(permit2), order)
+            ),
+            orderHash
+        );
     }
 
     /// @dev Create a signed order and return the order and orderHash
     /// @param request Order to sign
-    function createAndSignDutchOrder(DutchOrder memory request)
+    function createAndSignDutchOrder(
+        DutchOrder memory request
+    )
         public
         view
         override
@@ -118,7 +129,13 @@ contract V2DutchOrderTest is PermitSignature, DeployPermit2, BaseDutchOrderReact
 
         orderHash = order.hash();
         order.cosignature = cosignOrder(orderHash, cosignerData);
-        return (SignedOrder(abi.encode(order), signOrder(swapperPrivateKey, address(permit2), order)), orderHash);
+        return (
+            SignedOrder(
+                abi.encode(order),
+                signOrder(swapperPrivateKey, address(permit2), order)
+            ),
+            orderHash
+        );
     }
 
     function testWrongCosigner() public {
@@ -136,13 +153,20 @@ contract V2DutchOrderTest is PermitSignature, DeployPermit2, BaseDutchOrderReact
             info: OrderInfoBuilder.init(address(reactor)).withSwapper(swapper),
             cosigner: wrongCosigner,
             baseInput: DutchInput(tokenIn, 1 ether, 1 ether),
-            baseOutputs: OutputsBuilder.singleDutch(address(tokenOut), 1 ether, 1 ether, swapper),
+            baseOutputs: OutputsBuilder.singleDutch(
+                address(tokenOut),
+                1 ether,
+                1 ether,
+                swapper
+            ),
             cosignerData: cosignerData,
             cosignature: bytes("")
         });
         order.cosignature = cosignOrder(order.hash(), cosignerData);
-        SignedOrder memory signedOrder =
-            SignedOrder(abi.encode(order), signOrder(swapperPrivateKey, address(permit2), order));
+        SignedOrder memory signedOrder = SignedOrder(
+            abi.encode(order),
+            signOrder(swapperPrivateKey, address(permit2), order)
+        );
         vm.expectRevert(V2DutchOrderReactor.InvalidCosignature.selector);
         fillContract.execute(signedOrder);
     }
@@ -162,13 +186,24 @@ contract V2DutchOrderTest is PermitSignature, DeployPermit2, BaseDutchOrderReact
             info: OrderInfoBuilder.init(address(reactor)).withSwapper(swapper),
             cosigner: wrongCosigner,
             baseInput: DutchInput(tokenIn, 1 ether, 1 ether),
-            baseOutputs: OutputsBuilder.singleDutch(address(tokenOut), 1 ether, 1 ether, swapper),
+            baseOutputs: OutputsBuilder.singleDutch(
+                address(tokenOut),
+                1 ether,
+                1 ether,
+                swapper
+            ),
             cosignerData: cosignerData,
             cosignature: bytes("")
         });
-        order.cosignature = bytes.concat(keccak256("invalidSignature"), keccak256("invalidSignature"), hex"33");
-        SignedOrder memory signedOrder =
-            SignedOrder(abi.encode(order), signOrder(swapperPrivateKey, address(permit2), order));
+        order.cosignature = bytes.concat(
+            keccak256("invalidSignature"),
+            keccak256("invalidSignature"),
+            hex"33"
+        );
+        SignedOrder memory signedOrder = SignedOrder(
+            abi.encode(order),
+            signOrder(swapperPrivateKey, address(permit2), order)
+        );
         vm.expectRevert(V2DutchOrderReactor.InvalidCosignature.selector);
         fillContract.execute(signedOrder);
     }
@@ -187,13 +222,20 @@ contract V2DutchOrderTest is PermitSignature, DeployPermit2, BaseDutchOrderReact
             info: OrderInfoBuilder.init(address(reactor)).withSwapper(swapper),
             cosigner: vm.addr(cosignerPrivateKey),
             baseInput: DutchInput(tokenIn, 0.8 ether, 1 ether),
-            baseOutputs: OutputsBuilder.singleDutch(address(tokenOut), 1 ether, 1 ether, swapper),
+            baseOutputs: OutputsBuilder.singleDutch(
+                address(tokenOut),
+                1 ether,
+                1 ether,
+                swapper
+            ),
             cosignerData: cosignerData,
             cosignature: bytes("")
         });
         order.cosignature = cosignOrder(order.hash(), cosignerData);
-        SignedOrder memory signedOrder =
-            SignedOrder(abi.encode(order), signOrder(swapperPrivateKey, address(permit2), order));
+        SignedOrder memory signedOrder = SignedOrder(
+            abi.encode(order),
+            signOrder(swapperPrivateKey, address(permit2), order)
+        );
         vm.expectRevert(V2DutchOrderReactor.InvalidCosignerInput.selector);
         fillContract.execute(signedOrder);
     }
@@ -212,13 +254,20 @@ contract V2DutchOrderTest is PermitSignature, DeployPermit2, BaseDutchOrderReact
             info: OrderInfoBuilder.init(address(reactor)).withSwapper(swapper),
             cosigner: vm.addr(cosignerPrivateKey),
             baseInput: DutchInput(tokenIn, 1 ether, 1 ether),
-            baseOutputs: OutputsBuilder.singleDutch(address(tokenOut), 1 ether, 0.8 ether, swapper),
+            baseOutputs: OutputsBuilder.singleDutch(
+                address(tokenOut),
+                1 ether,
+                0.8 ether,
+                swapper
+            ),
             cosignerData: cosignerData,
             cosignature: bytes("")
         });
         order.cosignature = cosignOrder(order.hash(), cosignerData);
-        SignedOrder memory signedOrder =
-            SignedOrder(abi.encode(order), signOrder(swapperPrivateKey, address(permit2), order));
+        SignedOrder memory signedOrder = SignedOrder(
+            abi.encode(order),
+            signOrder(swapperPrivateKey, address(permit2), order)
+        );
         vm.expectRevert(V2DutchOrderReactor.InvalidCosignerOutput.selector);
         fillContract.execute(signedOrder);
     }
@@ -237,13 +286,20 @@ contract V2DutchOrderTest is PermitSignature, DeployPermit2, BaseDutchOrderReact
             info: OrderInfoBuilder.init(address(reactor)).withSwapper(swapper),
             cosigner: vm.addr(cosignerPrivateKey),
             baseInput: DutchInput(tokenIn, 1 ether, 1 ether),
-            baseOutputs: OutputsBuilder.singleDutch(address(tokenOut), 1 ether, 0.8 ether, swapper),
+            baseOutputs: OutputsBuilder.singleDutch(
+                address(tokenOut),
+                1 ether,
+                0.8 ether,
+                swapper
+            ),
             cosignerData: cosignerData,
             cosignature: bytes("")
         });
         order.cosignature = cosignOrder(order.hash(), cosignerData);
-        SignedOrder memory signedOrder =
-            SignedOrder(abi.encode(order), signOrder(swapperPrivateKey, address(permit2), order));
+        SignedOrder memory signedOrder = SignedOrder(
+            abi.encode(order),
+            signOrder(swapperPrivateKey, address(permit2), order)
+        );
         vm.expectRevert(V2DutchOrderReactor.InvalidCosignerOutput.selector);
         fillContract.execute(signedOrder);
     }
@@ -267,20 +323,30 @@ contract V2DutchOrderTest is PermitSignature, DeployPermit2, BaseDutchOrderReact
             info: OrderInfoBuilder.init(address(reactor)).withSwapper(swapper),
             cosigner: vm.addr(cosignerPrivateKey),
             baseInput: DutchInput(tokenIn, 0.8 ether, 1 ether),
-            baseOutputs: OutputsBuilder.singleDutch(address(tokenOut), outputAmount, outputAmount, swapper),
+            baseOutputs: OutputsBuilder.singleDutch(
+                address(tokenOut),
+                outputAmount,
+                outputAmount,
+                swapper
+            ),
             cosignerData: cosignerData,
             cosignature: bytes("")
         });
         order.cosignature = cosignOrder(order.hash(), cosignerData);
-        SignedOrder memory signedOrder =
-            SignedOrder(abi.encode(order), signOrder(swapperPrivateKey, address(permit2), order));
+        SignedOrder memory signedOrder = SignedOrder(
+            abi.encode(order),
+            signOrder(swapperPrivateKey, address(permit2), order)
+        );
 
         fillContract.execute(signedOrder);
         vm.snapshotGasLastCall("InputOverride");
 
         assertEq(tokenIn.balanceOf(swapper), 0);
         assertEq(tokenOut.balanceOf(swapper), outputAmount);
-        assertEq(tokenIn.balanceOf(address(fillContract)), overriddenInputAmount);
+        assertEq(
+            tokenIn.balanceOf(address(fillContract)),
+            overriddenInputAmount
+        );
     }
 
     function testOverrideOutput() public {
@@ -302,13 +368,20 @@ contract V2DutchOrderTest is PermitSignature, DeployPermit2, BaseDutchOrderReact
             info: OrderInfoBuilder.init(address(reactor)).withSwapper(swapper),
             cosigner: vm.addr(cosignerPrivateKey),
             baseInput: DutchInput(tokenIn, inputAmount, inputAmount),
-            baseOutputs: OutputsBuilder.singleDutch(address(tokenOut), 1 ether, 0.9 ether, swapper),
+            baseOutputs: OutputsBuilder.singleDutch(
+                address(tokenOut),
+                1 ether,
+                0.9 ether,
+                swapper
+            ),
             cosignerData: cosignerData,
             cosignature: bytes("")
         });
         order.cosignature = cosignOrder(order.hash(), cosignerData);
-        SignedOrder memory signedOrder =
-            SignedOrder(abi.encode(order), signOrder(swapperPrivateKey, address(permit2), order));
+        SignedOrder memory signedOrder = SignedOrder(
+            abi.encode(order),
+            signOrder(swapperPrivateKey, address(permit2), order)
+        );
 
         fillContract.execute(signedOrder);
         vm.snapshotGasLastCall("OutputOverride");
@@ -336,13 +409,20 @@ contract V2DutchOrderTest is PermitSignature, DeployPermit2, BaseDutchOrderReact
             info: OrderInfoBuilder.init(address(reactor)).withSwapper(swapper),
             cosigner: vm.addr(cosignerPrivateKey),
             baseInput: DutchInput(tokenIn, inputAmount, inputAmount),
-            baseOutputs: OutputsBuilder.singleDutch(address(tokenOut), 1 ether, 0.9 ether, swapper),
+            baseOutputs: OutputsBuilder.singleDutch(
+                address(tokenOut),
+                1 ether,
+                0.9 ether,
+                swapper
+            ),
             cosignerData: cosignerData,
             cosignature: bytes("")
         });
         order.cosignature = cosignOrder(order.hash(), cosignerData);
-        SignedOrder memory signedOrder =
-            SignedOrder(abi.encode(order), signOrder(swapperPrivateKey, address(permit2), order));
+        SignedOrder memory signedOrder = SignedOrder(
+            abi.encode(order),
+            signOrder(swapperPrivateKey, address(permit2), order)
+        );
         vm.expectRevert(ExclusivityLib.NoExclusiveOverride.selector);
         fillContract.execute(signedOrder);
     }
@@ -366,13 +446,20 @@ contract V2DutchOrderTest is PermitSignature, DeployPermit2, BaseDutchOrderReact
             info: OrderInfoBuilder.init(address(reactor)).withSwapper(swapper),
             cosigner: vm.addr(cosignerPrivateKey),
             baseInput: DutchInput(tokenIn, inputAmount, inputAmount),
-            baseOutputs: OutputsBuilder.singleDutch(address(tokenOut), outputAmount, 0.9 ether, swapper),
+            baseOutputs: OutputsBuilder.singleDutch(
+                address(tokenOut),
+                outputAmount,
+                0.9 ether,
+                swapper
+            ),
             cosignerData: cosignerData,
             cosignature: bytes("")
         });
         order.cosignature = cosignOrder(order.hash(), cosignerData);
-        SignedOrder memory signedOrder =
-            SignedOrder(abi.encode(order), signOrder(swapperPrivateKey, address(permit2), order));
+        SignedOrder memory signedOrder = SignedOrder(
+            abi.encode(order),
+            signOrder(swapperPrivateKey, address(permit2), order)
+        );
         vm.prank(address(1));
 
         fillContract.execute(signedOrder);
@@ -403,16 +490,26 @@ contract V2DutchOrderTest is PermitSignature, DeployPermit2, BaseDutchOrderReact
             info: OrderInfoBuilder.init(address(reactor)).withSwapper(swapper),
             cosigner: vm.addr(cosignerPrivateKey),
             baseInput: DutchInput(tokenIn, inputAmount, inputAmount),
-            baseOutputs: OutputsBuilder.singleDutch(address(tokenOut), 1 ether, 0.9 ether, swapper),
+            baseOutputs: OutputsBuilder.singleDutch(
+                address(tokenOut),
+                1 ether,
+                0.9 ether,
+                swapper
+            ),
             cosignerData: cosignerData,
             cosignature: bytes("")
         });
         order.cosignature = cosignOrder(order.hash(), cosignerData);
-        SignedOrder memory signedOrder =
-            SignedOrder(abi.encode(order), signOrder(swapperPrivateKey, address(permit2), order));
+        SignedOrder memory signedOrder = SignedOrder(
+            abi.encode(order),
+            signOrder(swapperPrivateKey, address(permit2), order)
+        );
         fillContract.execute(signedOrder);
         assertEq(tokenIn.balanceOf(swapper), 0);
-        assertEq(tokenOut.balanceOf(swapper), outputAmount * (10000 + exclusivityOverrideBps) / 10000);
+        assertEq(
+            tokenOut.balanceOf(swapper),
+            (outputAmount * (10000 + exclusivityOverrideBps)) / 10000
+        );
         assertEq(tokenIn.balanceOf(address(fillContract)), inputAmount);
     }
 
@@ -436,17 +533,27 @@ contract V2DutchOrderTest is PermitSignature, DeployPermit2, BaseDutchOrderReact
             info: OrderInfoBuilder.init(address(reactor)).withSwapper(swapper),
             cosigner: vm.addr(cosignerPrivateKey),
             baseInput: DutchInput(tokenIn, inputAmount, inputAmount),
-            baseOutputs: OutputsBuilder.singleDutch(address(tokenOut), outputAmount, 0.9 ether, swapper),
+            baseOutputs: OutputsBuilder.singleDutch(
+                address(tokenOut),
+                outputAmount,
+                0.9 ether,
+                swapper
+            ),
             cosignerData: cosignerData,
             cosignature: bytes("")
         });
         order.cosignature = cosignOrder(order.hash(), cosignerData);
-        SignedOrder memory signedOrder =
-            SignedOrder(abi.encode(order), signOrder(swapperPrivateKey, address(permit2), order));
+        SignedOrder memory signedOrder = SignedOrder(
+            abi.encode(order),
+            signOrder(swapperPrivateKey, address(permit2), order)
+        );
         fillContract.execute(signedOrder);
         assertEq(tokenIn.balanceOf(swapper), 0);
         // still overrides the base swapper signed amount
-        assertEq(tokenOut.balanceOf(swapper), outputAmount * (10000 + exclusivityOverrideBps) / 10000);
+        assertEq(
+            tokenOut.balanceOf(swapper),
+            (outputAmount * (10000 + exclusivityOverrideBps)) / 10000
+        );
         assertEq(tokenIn.balanceOf(address(fillContract)), inputAmount);
     }
 
@@ -466,32 +573,60 @@ contract V2DutchOrderTest is PermitSignature, DeployPermit2, BaseDutchOrderReact
                 startTime: startTime,
                 endTime: deadline,
                 deadline: deadline,
-                input: DutchInput(tokenIn, inputAmount, inputAmount * 110 / 100),
-                outputs: OutputsBuilder.singleDutch(tokenOut, outputAmount, outputAmount * 90 / 100, address(swapper))
+                input: DutchInput(
+                    tokenIn,
+                    inputAmount,
+                    (inputAmount * 110) / 100
+                ),
+                outputs: OutputsBuilder.singleDutch(
+                    tokenOut,
+                    outputAmount,
+                    (outputAmount * 90) / 100,
+                    address(swapper)
+                )
             })
         );
         uint256 swapperInputBalanceStart = tokenIn.balanceOf(address(swapper));
-        uint256 swapperOutputBalanceStart = tokenOut.balanceOf(address(swapper));
+        uint256 swapperOutputBalanceStart = tokenOut.balanceOf(
+            address(swapper)
+        );
         vm.expectEmit(false, true, true, false, address(reactor));
         emit Fill(keccak256("not checked"), address(fillContract), swapper, 0);
         vm.warp(startTime + 500);
         fillContract.execute(order);
         uint256 swapperInputBalanceEnd = tokenIn.balanceOf(address(swapper));
         uint256 swapperOutputBalanceEnd = tokenOut.balanceOf(address(swapper));
-        assertEq(swapperInputBalanceStart - swapperInputBalanceEnd, inputAmount * 105 / 100);
-        assertEq(swapperOutputBalanceEnd - swapperOutputBalanceStart, outputAmount * 95 / 100);
+        assertEq(
+            swapperInputBalanceStart - swapperInputBalanceEnd,
+            (inputAmount * 105) / 100
+        );
+        assertEq(
+            swapperOutputBalanceEnd - swapperOutputBalanceStart,
+            (outputAmount * 95) / 100
+        );
     }
 
-    function cosignOrder(bytes32 orderHash, CosignerData memory cosignerData) private pure returns (bytes memory sig) {
-        bytes32 msgHash = keccak256(abi.encodePacked(orderHash, abi.encode(cosignerData)));
+    function cosignOrder(
+        bytes32 orderHash,
+        CosignerData memory cosignerData
+    ) private pure returns (bytes memory sig) {
+        bytes32 msgHash = keccak256(
+            abi.encodePacked(orderHash, abi.encode(cosignerData))
+        );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(cosignerPrivateKey, msgHash);
         sig = bytes.concat(r, s, bytes1(v));
     }
 
-    function generateSignedOrders(V2DutchOrder[] memory orders) private view returns (SignedOrder[] memory result) {
+    function generateSignedOrders(
+        V2DutchOrder[] memory orders
+    ) private view returns (SignedOrder[] memory result) {
         result = new SignedOrder[](orders.length);
         for (uint256 i = 0; i < orders.length; i++) {
-            bytes memory sig = signOrder(swapperPrivateKey, address(permit2), orders[i]);
+            bytes memory sig = signOrder(
+                swapperPrivateKey,
+                address(permit2),
+                orders[i]
+            );
             result[i] = SignedOrder(abi.encode(orders[i]), sig);
         }
     }
