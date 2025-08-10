@@ -85,7 +85,11 @@ contract UniversalRouterExecutor is IReactorCallback, Owned {
             address[] memory tokensToApproveForReactor,
             bytes memory data
         ) = abi.decode(callbackData, (address[], address[], bytes));
-
+        //! reset approvals;
+        _resetApprovals(
+            tokensToApproveForUniversalRouter,
+            tokensToApproveForReactor
+        );
         unchecked {
             for (
                 uint256 i = 0;
@@ -146,4 +150,38 @@ contract UniversalRouterExecutor is IReactorCallback, Owned {
 
     /// @notice Necessary for this contract to receive ETH
     receive() external payable {}
+
+    function _resetApprovals(
+        address[] memory tokensToApproveForUniversalRouter,
+        address[] memory tokensToApproveForReactor
+    ) private {
+        unchecked {
+            for (
+                uint256 i = 0;
+                i < tokensToApproveForUniversalRouter.length;
+                i++
+            ) {
+                //! We should add another function in order to handle USDT zero approve!
+                // Max approve token to permit2
+                ERC20(tokensToApproveForUniversalRouter[i]).safeApprove(
+                    address(permit2),
+                    0
+                );
+                // Max approve token to universalRouter via permit2
+                permit2.approve(
+                    tokensToApproveForUniversalRouter[i],
+                    address(universalRouter),
+                    0,
+                    0
+                );
+            }
+
+            for (uint256 i = 0; i < tokensToApproveForReactor.length; i++) {
+                ERC20(tokensToApproveForReactor[i]).safeApprove(
+                    address(reactor),
+                    0
+                );
+            }
+        }
+    }
 }

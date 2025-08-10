@@ -1,22 +1,31 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.0;
 
-import {SafeTransferLib} from "solmate/src/utils/SafeTransferLib.sol";
-import {Test} from "forge-std/Test.sol";
-import {IPermit2} from "permit2/src/interfaces/IPermit2.sol";
-import {ERC20} from "solmate/src/tokens/ERC20.sol";
-import {UniversalRouterExecutor} from "../../src/sample-executors/UniversalRouterExecutor.sol";
-import {InputToken, OrderInfo, SignedOrder} from "../../src/base/ReactorStructs.sol";
-import {OrderInfoBuilder} from "../util/OrderInfoBuilder.sol";
-import {V2DutchOrder, V2DutchOrderLib, CosignerData, V2DutchOrderReactor, ResolvedOrder, DutchOutput, DutchInput, BaseReactor} from "../../src/reactors/V2DutchOrderReactor.sol";
-import {OutputsBuilder} from "../util/OutputsBuilder.sol";
-import {DutchOrder} from "../../src/reactors/DutchOrderReactor.sol";
-import {PermitSignature} from "../util/PermitSignature.sol";
-import {IReactor} from "../../src/interfaces/IReactor.sol";
-import {IUniversalRouter} from "../../src/external/IUniversalRouter.sol";
-import {V2DutchOrderTest} from "../reactors/V2DutchOrderReactor.t.sol";
-import {console2} from "forge-std/console2.sol";
-import {DutchDecayLib} from "../../src/lib/DutchDecayLib.sol";
+import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
+import { Test } from "forge-std/Test.sol";
+import { IPermit2 } from "permit2/src/interfaces/IPermit2.sol";
+import { ERC20 } from "solmate/src/tokens/ERC20.sol";
+import { UniversalRouterExecutor } from "../../src/sample-executors/UniversalRouterExecutor.sol";
+import { InputToken, OrderInfo, SignedOrder } from "../../src/base/ReactorStructs.sol";
+import { OrderInfoBuilder } from "../util/OrderInfoBuilder.sol";
+import {
+    V2DutchOrder,
+    V2DutchOrderLib,
+    CosignerData,
+    V2DutchOrderReactor,
+    ResolvedOrder,
+    DutchOutput,
+    DutchInput,
+    BaseReactor
+} from "../../src/reactors/V2DutchOrderReactor.sol";
+import { OutputsBuilder } from "../util/OutputsBuilder.sol";
+import { DutchOrder } from "../../src/reactors/DutchOrderReactor.sol";
+import { PermitSignature } from "../util/PermitSignature.sol";
+import { IReactor } from "../../src/interfaces/IReactor.sol";
+import { IUniversalRouter } from "../../src/external/IUniversalRouter.sol";
+import { V2DutchOrderTest } from "../reactors/V2DutchOrderReactor.t.sol";
+import { console2 } from "forge-std/console2.sol";
+import { DutchDecayLib } from "../../src/lib/DutchDecayLib.sol";
 
 contract UniversalRouterExecutorIntegrationTest is Test, PermitSignature {
     using OrderInfoBuilder for OrderInfo;
@@ -32,8 +41,7 @@ contract UniversalRouterExecutorIntegrationTest is Test, PermitSignature {
     uint256 constant USDC_ONE = 1e6;
 
     // UniversalRouter with V4 support
-    IUniversalRouter universalRouter =
-        IUniversalRouter(0x66a9893cC07D91D95644AEDD05D03f95e1dBA8Af);
+    IUniversalRouter universalRouter = IUniversalRouter(0x66a9893cC07D91D95644AEDD05D03f95e1dBA8Af);
     IPermit2 permit2 = IPermit2(0x000000000022D473030F116dDEE9F6B43aC78BA3);
 
     address swapper;
@@ -73,39 +81,22 @@ contract UniversalRouterExecutorIntegrationTest is Test, PermitSignature {
 
     function _baseTest2(uint256 nonce) internal {
         DutchOrder memory order = DutchOrder({
-            info: OrderInfoBuilder
-                .init(address(v2reactor))
-                .withSwapper(swapper)
-                .withDeadline(block.timestamp + 100),
+            info: OrderInfoBuilder.init(address(v2reactor)).withSwapper(swapper).withDeadline(block.timestamp + 100),
             decayStartTime: block.timestamp - 100,
             decayEndTime: block.timestamp + 100,
             input: DutchInput(USDC, 40 * USDC_ONE, 40 * USDC_ONE),
-            outputs: OutputsBuilder.singleDutch(
-                address(USDT),
-                37 * USDC_ONE,
-                37 * USDC_ONE,
-                address(swapper)
-            )
+            outputs: OutputsBuilder.singleDutch(address(USDT), 37 * USDC_ONE, 37 * USDC_ONE, address(swapper))
         });
         order.info.nonce = nonce;
-        (
-            SignedOrder memory signedOrder,
-            bytes32 orderHash
-        ) = createAndSignDutchOrder(order);
-        address[]
-            memory tokensToApproveForPermit2AndUniversalRouter = new address[](
-                1
-            );
+        (SignedOrder memory signedOrder, ) = createAndSignDutchOrder(order);
+        
+        address[] memory tokensToApproveForPermit2AndUniversalRouter = new address[](1);
         tokensToApproveForPermit2AndUniversalRouter[0] = address(USDC);
 
         address[] memory tokensToApproveForReactor = new address[](1);
-        tokensToApproveForReactor[0] = address(USDT);
+        tokensToApproveForReactor[0] =  address(USDT);
 
-        bytes memory commands = abi.encodePacked(
-            uint8(0x00),
-            uint8(0x06),
-            uint8(0x06)
-        );
+        bytes memory commands = abi.encodePacked(uint8(0x00), uint8(0x06), uint8(0x06));
 
         bytes[] memory inputs = new bytes[](3);
         // V3 swap USDC -> USDT, with recipient as universalRouterExecutor
@@ -129,46 +120,23 @@ contract UniversalRouterExecutorIntegrationTest is Test, PermitSignature {
         vm.prank(whitelistedCaller);
         universalRouterExecutorForV2.execute(
             signedOrder,
-            abi.encode(
-                tokensToApproveForPermit2AndUniversalRouter,
-                tokensToApproveForReactor,
-                data
-            )
+            abi.encode(tokensToApproveForPermit2AndUniversalRouter, tokensToApproveForReactor, data)
         );
     }
 
     function test_two_outputs_in_order() internal {
         DutchOutput[] memory result = new DutchOutput[](2);
-        result[0] = DutchOutput(
-            address(USDT),
-            37 * USDC_ONE,
-            37 * USDC_ONE,
-            address(swapper)
-        );
-        result[1] = DutchOutput(
-            address(USDT),
-            2 * USDC_ONE,
-            2 * USDC_ONE,
-            address(whitelistedCaller)
-        );
+        result[0] = DutchOutput(address(USDT), 37 * USDC_ONE, 37 * USDC_ONE, address(swapper));
+        result[1] = DutchOutput(address(USDT), 2 * USDC_ONE, 2 * USDC_ONE, address(whitelistedCaller));
         DutchOrder memory order = DutchOrder({
-            info: OrderInfoBuilder
-                .init(address(v2reactor))
-                .withSwapper(swapper)
-                .withDeadline(block.timestamp + 100),
+            info: OrderInfoBuilder.init(address(v2reactor)).withSwapper(swapper).withDeadline(block.timestamp + 100),
             decayStartTime: block.timestamp - 100,
             decayEndTime: block.timestamp + 100,
             input: DutchInput(USDC, 40 * USDC_ONE, 40 * USDC_ONE),
             outputs: result
         });
-        (
-            SignedOrder memory signedOrder,
-            bytes32 orderHash
-        ) = createAndSignDutchOrder(order);
-        address[]
-            memory tokensToApproveForPermit2AndUniversalRouter = new address[](
-                1
-            );
+        (SignedOrder memory signedOrder, ) = createAndSignDutchOrder(order);
+        address[] memory tokensToApproveForPermit2AndUniversalRouter = new address[](1);
         tokensToApproveForPermit2AndUniversalRouter[0] = address(USDC);
 
         address[] memory tokensToApproveForReactor = new address[](1);
@@ -193,59 +161,31 @@ contract UniversalRouterExecutorIntegrationTest is Test, PermitSignature {
         uint gasLeftBefore = gasleft();
         universalRouterExecutorForV2.execute(
             signedOrder,
-            abi.encode(
-                tokensToApproveForPermit2AndUniversalRouter,
-                tokensToApproveForReactor,
-                data
-            )
+            abi.encode(tokensToApproveForPermit2AndUniversalRouter, tokensToApproveForReactor, data)
         );
         uint gasLeftAfter = gasleft();
-        console2.log(
-            "Gas left In in two aoutputs method: ",
-            gasLeftBefore - gasLeftAfter
-        );
+        console2.log("Gas left In in two aoutputs method: ", gasLeftBefore - gasLeftAfter);
         console2.log("whitelisterBAlance", USDT.balanceOf(whitelistedCaller));
-        console2.log(
-            "executor balance: ",
-            USDT.balanceOf(address(universalRouterExecutorForV2))
-        );
+        console2.log("executor balance: ", USDT.balanceOf(address(universalRouterExecutorForV2)));
         //389337 gas consumed!
     }
 
     function test_V2dutchOrderReactor() internal {
         DutchOrder memory order = DutchOrder({
-            info: OrderInfoBuilder
-                .init(address(v2reactor))
-                .withSwapper(swapper)
-                .withDeadline(block.timestamp + 100),
+            info: OrderInfoBuilder.init(address(v2reactor)).withSwapper(swapper).withDeadline(block.timestamp + 100),
             decayStartTime: block.timestamp - 100,
             decayEndTime: block.timestamp + 100,
             input: DutchInput(USDC, 40 * USDC_ONE, 40 * USDC_ONE),
-            outputs: OutputsBuilder.singleDutch(
-                address(USDT),
-                37 * USDC_ONE,
-                37 * USDC_ONE,
-                address(swapper)
-            )
+            outputs: OutputsBuilder.singleDutch(address(USDT), 37 * USDC_ONE, 37 * USDC_ONE, address(swapper))
         });
-        (
-            SignedOrder memory signedOrder,
-            bytes32 orderHash
-        ) = createAndSignDutchOrder(order);
-        address[]
-            memory tokensToApproveForPermit2AndUniversalRouter = new address[](
-                1
-            );
+        (SignedOrder memory signedOrder, bytes32 orderHash) = createAndSignDutchOrder(order);
+        address[] memory tokensToApproveForPermit2AndUniversalRouter = new address[](1);
         tokensToApproveForPermit2AndUniversalRouter[0] = address(USDC);
 
         address[] memory tokensToApproveForReactor = new address[](1);
         tokensToApproveForReactor[0] = address(USDT);
 
-        bytes memory commands = abi.encodePacked(
-            uint8(0x00),
-            uint8(0x06),
-            uint8(0x06)
-        );
+        bytes memory commands = abi.encodePacked(uint8(0x00), uint8(0x06), uint8(0x06));
 
         bytes[] memory inputs = new bytes[](3);
         // V3 swap USDC -> USDT, with recipient as universalRouterExecutor
@@ -270,35 +210,18 @@ contract UniversalRouterExecutorIntegrationTest is Test, PermitSignature {
         uint gasLeftBefore = gasleft();
         universalRouterExecutorForV2.execute(
             signedOrder,
-            abi.encode(
-                tokensToApproveForPermit2AndUniversalRouter,
-                tokensToApproveForReactor,
-                data
-            )
+            abi.encode(tokensToApproveForPermit2AndUniversalRouter, tokensToApproveForReactor, data)
         );
         uint gasLeftAfter = gasleft();
-        console2.log(
-            "Gas left in Pay_portion method: ",
-            gasLeftBefore - gasLeftAfter
-        );
+        console2.log("Gas left in Pay_portion method: ", gasLeftBefore - gasLeftAfter);
         //420992 gas consumed!
     }
 
-    function test_USDT_double_approve() public {
-        console2.log("HEEEEEEEEY");
-        address random = makeAddr("addr");
-        vm.prank(whitelistedCaller);
-        USDT.approve(random, 100 * 1e6);
-        console2.log("first approve!");
-        vm.prank(whitelistedCaller);
-        USDT.approve(random, 100 * 1e6);
-        console2.log("Second approve!");
-    }
-
-    function test_first_order() internal {
+    function test_first_order() public {
         _baseTest2(1);
         console2.log("@@@@@@@@@@@@@@@");
         _baseTest2(2);
+        console2.log("whitlelist USDT balance: ", USDT.balanceOf(whitelistedCaller));
     }
 
     // function test_second_order() public {
@@ -311,11 +234,7 @@ contract UniversalRouterExecutorIntegrationTest is Test, PermitSignature {
 
     function createAndSignDutchOrder(
         DutchOrder memory request
-    )
-        internal
-        view
-        returns (SignedOrder memory signedOrder, bytes32 orderHash)
-    {
+    ) internal view returns (SignedOrder memory signedOrder, bytes32 orderHash) {
         uint256[] memory outputAmounts = new uint256[](request.outputs.length);
         for (uint256 i = 0; i < request.outputs.length; i++) {
             outputAmounts[i] = 0;
@@ -340,22 +259,11 @@ contract UniversalRouterExecutorIntegrationTest is Test, PermitSignature {
 
         orderHash = order.hash();
         order.cosignature = cosignOrder(orderHash, cosignerData);
-        return (
-            SignedOrder(
-                abi.encode(order),
-                signOrder(swapperPrivateKey, address(permit2), order)
-            ),
-            orderHash
-        );
+        return (SignedOrder(abi.encode(order), signOrder(swapperPrivateKey, address(permit2), order)), orderHash);
     }
 
-    function cosignOrder(
-        bytes32 orderHash,
-        CosignerData memory cosignerData
-    ) private pure returns (bytes memory sig) {
-        bytes32 msgHash = keccak256(
-            abi.encodePacked(orderHash, abi.encode(cosignerData))
-        );
+    function cosignOrder(bytes32 orderHash, CosignerData memory cosignerData) private pure returns (bytes memory sig) {
+        bytes32 msgHash = keccak256(abi.encodePacked(orderHash, abi.encode(cosignerData)));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(cosignerPrivateKey, msgHash);
         sig = bytes.concat(r, s, bytes1(v));
     }
@@ -367,21 +275,12 @@ contract UniversalRouterExecutorIntegrationTest is Test, PermitSignature {
             .order = "0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000001000000000000000000000000004449cd34d1eb1fedcf02a1be3834ffde8e6a6180000000000000000000000000514910771af9ca656af840dff83e8264ecf986ca00000000000000000000000000000000000000000000000f5fbc02959160c78c00000000000000000000000000000000000000000000000f5fbc02959160c78c00000000000000000000000000000000000000000000000000000000000001e00000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000042000000000000000000000000000000011f84b9aa48e5f8aa8b9897600006289be00000000000000000000000047354d298986326887f758361199ae6057bb17db0468328766cfeaa54cf04882b93444782401bf9dbf92a5350edb8f2265bf960500000000000000000000000000000000000000000000000000000000686a6e3a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb4800000000000000000000000000000000000000000000000000000000de13a00300000000000000000000000000000000000000000000000000000000dc1ce8fd00000000000000000000000047354d298986326887f758361199ae6057bb17db000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb4800000000000000000000000000000000000000000000000000000000008e7c3b00000000000000000000000000000000000000000000000000000000008d39af00000000000000000000000027213e28d7fda5c57fe9e5dd923818dbccf71c4700000000000000000000000000000000000000000000000000000000686a6d3000000000000000000000000000000000000000000000000000000000686a6d6c000000000000000000000000ce79b081c0c924cb67848723ed3057234d10fc6b0000000000000000000000000000000000000000000000000000000000000064000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000de7352d80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004106ff1e3054642410d5e4e5cf4b8b384cff1dd805e785fd7c5c1e0ca1cc9271737a15b9ea935032f1dfdfcc5e8c9b2fbaa3687d3ec6a3d56b72f253d78544fd901c00000000000000000000000000000000000000000000000000000000000000";
         signedOrder
             .sig = "0x6b006e08427d5b62d5b513b49fcef64d001bcb4f1e45bc427ce0524d6e0b22ea76d4bb328261498c2abbb4055e020379f17e409509efe951d9258168909fed251c";
-        V2DutchOrder memory order = abi.decode(
-            signedOrder.order,
-            (V2DutchOrder)
-        );
+        V2DutchOrder memory order = abi.decode(signedOrder.order, (V2DutchOrder));
         bytes32 orderHash = order.hash();
         resolvedOrder = ResolvedOrder({
             info: order.info,
-            input: order.baseInput.decay(
-                order.cosignerData.decayStartTime,
-                order.cosignerData.decayEndTime
-            ),
-            outputs: order.baseOutputs.decay(
-                order.cosignerData.decayStartTime,
-                order.cosignerData.decayEndTime
-            ),
+            input: order.baseInput.decay(order.cosignerData.decayStartTime, order.cosignerData.decayEndTime),
+            outputs: order.baseOutputs.decay(order.cosignerData.decayStartTime, order.cosignerData.decayEndTime),
             sig: signedOrder.sig,
             hash: orderHash
         });

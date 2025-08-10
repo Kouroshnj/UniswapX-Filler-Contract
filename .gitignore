@@ -6,6 +6,9 @@ out/
 !/broadcast
 /broadcast/*
 /broadcast/*/31337/
+.vscode
+node_modules
+package-lock.json
 
 .idea/
 .env
