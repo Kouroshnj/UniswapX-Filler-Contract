@@ -79,52 +79,7 @@ contract UniversalRouterExecutorIntegrationTest is Test, PermitSignature {
         deal(address(USDC), swapper, 1000 * 1e6);
     }
 
-    function _baseTest2(uint256 nonce) internal {
-        DutchOrder memory order = DutchOrder({
-            info: OrderInfoBuilder.init(address(v2reactor)).withSwapper(swapper).withDeadline(block.timestamp + 100),
-            decayStartTime: block.timestamp - 100,
-            decayEndTime: block.timestamp + 100,
-            input: DutchInput(USDC, 40 * USDC_ONE, 40 * USDC_ONE),
-            outputs: OutputsBuilder.singleDutch(address(USDT), 37 * USDC_ONE, 37 * USDC_ONE, address(swapper))
-        });
-        order.info.nonce = nonce;
-        (SignedOrder memory signedOrder, ) = createAndSignDutchOrder(order);
-        
-        address[] memory tokensToApproveForPermit2AndUniversalRouter = new address[](1);
-        tokensToApproveForPermit2AndUniversalRouter[0] = address(USDC);
-
-        address[] memory tokensToApproveForReactor = new address[](1);
-        tokensToApproveForReactor[0] =  address(USDT);
-
-        bytes memory commands = abi.encodePacked(uint8(0x00), uint8(0x06), uint8(0x06));
-
-        bytes[] memory inputs = new bytes[](3);
-        // V3 swap USDC -> USDT, with recipient as universalRouterExecutor
-        //0000000000000000000000002e234DAe75C793f67A35089C9d99245E1C58470b0000000000000000000000000000000000000000000000000000000000989680000000000000000000000000000000000000000000000000000000000090972200000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002ba0b86991c6218b36c1d19d4a2e9eb0ce3606eb48000064dac17f958d2ee523a2206206994597c13d831ec7000000000000000000000000000000000000000000
-        inputs[
-            0
-        ] = hex"00000000000000000000000066a9893cc07d91d95644aedd05d03f95e1dba8af0000000000000000000000000000000000000000000000000000000002625a00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002ba0b86991c6218b36c1d19d4a2e9eb0ce3606eb480001f4dac17f958d2ee523a2206206994597c13d831ec7000000000000000000000000000000000000000000";
-        inputs[
-            1
-        ] = hex"000000000000000000000000dac17f958d2ee523a2206206994597c13d831ec7000000000000000000000000fbff93ae6ef22688cf9c40fcda25d3a2c617f91800000000000000000000000000000000000000000000000000000000000001f4";
-        inputs[
-            2
-        ] = hex"000000000000000000000000dac17f958d2ee523a2206206994597c13d831ec70000000000000000000000002e234dae75c793f67a35089c9d99245e1c58470b0000000000000000000000000000000000000000000000000000000000002710";
-        bytes memory data = abi.encodeWithSelector(
-            IUniversalRouter.execute.selector,
-            commands,
-            inputs,
-            uint256(block.timestamp + 1000)
-        );
-
-        vm.prank(whitelistedCaller);
-        universalRouterExecutorForV2.execute(
-            signedOrder,
-            abi.encode(tokensToApproveForPermit2AndUniversalRouter, tokensToApproveForReactor, data)
-        );
-    }
-
-    function test_two_outputs_in_order() internal {
+    function test_two_outputs_in_order() public {
         DutchOutput[] memory result = new DutchOutput[](2);
         result[0] = DutchOutput(address(USDT), 37 * USDC_ONE, 37 * USDC_ONE, address(swapper));
         result[1] = DutchOutput(address(USDT), 2 * USDC_ONE, 2 * USDC_ONE, address(whitelistedCaller));
@@ -170,7 +125,7 @@ contract UniversalRouterExecutorIntegrationTest is Test, PermitSignature {
         //389337 gas consumed!
     }
 
-    function test_V2dutchOrderReactor() internal {
+    function test_wtihUniversalCommands() public {
         DutchOrder memory order = DutchOrder({
             info: OrderInfoBuilder.init(address(v2reactor)).withSwapper(swapper).withDeadline(block.timestamp + 100),
             decayStartTime: block.timestamp - 100,
@@ -178,7 +133,7 @@ contract UniversalRouterExecutorIntegrationTest is Test, PermitSignature {
             input: DutchInput(USDC, 40 * USDC_ONE, 40 * USDC_ONE),
             outputs: OutputsBuilder.singleDutch(address(USDT), 37 * USDC_ONE, 37 * USDC_ONE, address(swapper))
         });
-        (SignedOrder memory signedOrder, bytes32 orderHash) = createAndSignDutchOrder(order);
+        (SignedOrder memory signedOrder, ) = createAndSignDutchOrder(order);
         address[] memory tokensToApproveForPermit2AndUniversalRouter = new address[](1);
         tokensToApproveForPermit2AndUniversalRouter[0] = address(USDC);
 
@@ -216,21 +171,6 @@ contract UniversalRouterExecutorIntegrationTest is Test, PermitSignature {
         console2.log("Gas left in Pay_portion method: ", gasLeftBefore - gasLeftAfter);
         //420992 gas consumed!
     }
-
-    function test_first_order() public {
-        _baseTest2(1);
-        console2.log("@@@@@@@@@@@@@@@");
-        _baseTest2(2);
-        console2.log("whitlelist USDT balance: ", USDT.balanceOf(whitelistedCaller));
-    }
-
-    // function test_second_order() public {
-    //     uint256 reactorAllowence = USDT.allowance(
-    //         address(universalRouterExecutorForV2),
-    //         address(v2reactor)
-    //     );
-    //     console2.log("this is reactor allowence: ", reactorAllowence);
-    // }
 
     function createAndSignDutchOrder(
         DutchOrder memory request
