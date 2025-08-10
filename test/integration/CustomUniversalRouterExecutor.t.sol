@@ -101,7 +101,6 @@ contract UniversalRouterExecutorIntegrationTest is Test, PermitSignature {
 
         bytes[] memory inputs = new bytes[](1);
         // V3 swap USDC -> USDT, with recipient as universalRouterExecutor
-        //0000000000000000000000002e234DAe75C793f67A35089C9d99245E1C58470b0000000000000000000000000000000000000000000000000000000000989680000000000000000000000000000000000000000000000000000000000090972200000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002ba0b86991c6218b36c1d19d4a2e9eb0ce3606eb48000064dac17f958d2ee523a2206206994597c13d831ec7000000000000000000000000000000000000000000
         inputs[
             0
         ] = hex"0000000000000000000000002e234dae75c793f67a35089c9d99245e1c58470b0000000000000000000000000000000000000000000000000000000002625a00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002ba0b86991c6218b36c1d19d4a2e9eb0ce3606eb480001f4dac17f958d2ee523a2206206994597c13d831ec7000000000000000000000000000000000000000000";
@@ -113,16 +112,10 @@ contract UniversalRouterExecutorIntegrationTest is Test, PermitSignature {
         );
 
         vm.prank(whitelistedCaller);
-        uint gasLeftBefore = gasleft();
         universalRouterExecutorForV2.execute(
             signedOrder,
             abi.encode(tokensToApproveForPermit2AndUniversalRouter, tokensToApproveForReactor, data)
         );
-        uint gasLeftAfter = gasleft();
-        console2.log("Gas left In in two aoutputs method: ", gasLeftBefore - gasLeftAfter);
-        console2.log("whitelisterBAlance", USDT.balanceOf(whitelistedCaller));
-        console2.log("executor balance: ", USDT.balanceOf(address(universalRouterExecutorForV2)));
-        //389337 gas consumed!
     }
 
     function test_wtihUniversalCommands() public {
@@ -162,14 +155,10 @@ contract UniversalRouterExecutorIntegrationTest is Test, PermitSignature {
         );
 
         vm.prank(whitelistedCaller);
-        uint gasLeftBefore = gasleft();
         universalRouterExecutorForV2.execute(
             signedOrder,
             abi.encode(tokensToApproveForPermit2AndUniversalRouter, tokensToApproveForReactor, data)
         );
-        uint gasLeftAfter = gasleft();
-        console2.log("Gas left in Pay_portion method: ", gasLeftBefore - gasLeftAfter);
-        //420992 gas consumed!
     }
 
     function createAndSignDutchOrder(
