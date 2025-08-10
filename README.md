@@ -7,6 +7,10 @@ In addition, we have added a new test called **`CustomUniversalRouterExecutor`**
 ## Notes
 - This project is intended for educational and reference purposes.
 - All code samples are kept minimal for clarity.
+- You can find test that related to fee collection in these paths :
+`test::integration::CustomUniversalRouterExecutor`
+And also this folder for encoding purposes:
+`universalTest`
 
 ## References
 
